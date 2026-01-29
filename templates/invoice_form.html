@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Factures Factur-X</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .form-section {
+            border-left: 4px solid #667eea;
+            padding-left: 1rem;
+        }
+        .invoice-item {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        .btn-primary:disabled {
+            background: linear-gradient(135deg, #adb5bd 0%, #6c757d 100%);
+            border: none;
+            opacity: 0.65;
+        }
+        .total-display {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        .form-control.is-valid {
+            border-color: #198754;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.94-.94 1.46 1.46L7.7 4.25l.94.94L4.2 9.63z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 4.6 1.4 1.4M7.2 4.6l-1.4 1.4'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right calc(0.375em + 0.1875rem) center;
+            background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg gradient-bg">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-file-invoice-dollar me-2"></i>
+                Factur-X Generator
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                        <div style="white-space: pre-line;">{{ message }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h3 class="card-title mb-0">
+                            <i class="fas fa-plus-circle me-2"></i>
+                            Nouvelle Facture
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="/generate_invoice" id="invoiceForm">
+                            <!-- Informations générales -->
+                            <div class="form-section mb-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Informations générales
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="date" class="form-label">Date de facturation *</label>
+                                        <input type="date" class="form-control" id="date" name="date" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="invoice_number" class="form-label">Numéro de facture *</label>
+                                        <input type="text" class="form-control" id="invoice_number" name="invoice_number" 
+                                               placeholder="Ex: INV-2026-001" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Émetteur -->
+                            <div class="form-section mb-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-building me-2"></i>
+                                    Émetteur (Votre entreprise)
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="issuer_name" class="form-label">Raison sociale *</label>
+                                        <input type="text" class="form-control" id="issuer_name" name="issuer_name" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="issuer_address" class="form-label">Adresse *</label>
+                                        <input type="text" class="form-control" id="issuer_address" name="issuer_address" required>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-3">
+                                        <label for="issuer_postal" class="form-label">Code postal *</label>
+                                        <input type="text" class="form-control" id="issuer_postal" name="issuer_postal" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="issuer_city" class="form-label">Ville *</label>
+                                        <input type="text" class="form-control" id="issuer_city" name="issuer_city" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="issuer_siret" class="form-label">SIRET</label>
+                                        <input type="text" class="form-control" id="issuer_siret" name="issuer_siret">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="issuer_vat" class="form-label">N° TVA</label>
+                                        <input type="text" class="form-control" id="issuer_vat" name="issuer_vat">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Destinataire -->
+                            <div class="form-section mb-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-user-tie me-2"></i>
+                                    Destinataire (Client)
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="recipient_name" class="form-label">Raison sociale *</label>
+                                        <input type="text" class="form-control" id="recipient_name" name="recipient_name" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="recipient_address" class="form-label">Adresse *</label>
+                                        <input type="text" class="form-control" id="recipient_address" name="recipient_address" required>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-3">
+                                        <label for="recipient_postal" class="form-label">Code postal *</label>
+                                        <input type="text" class="form-control" id="recipient_postal" name="recipient_postal" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="recipient_city" class="form-label">Ville *</label>
+                                        <input type="text" class="form-control" id="recipient_city" name="recipient_city" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="recipient_siret" class="form-label">SIRET</label>
+                                        <input type="text" class="form-control" id="recipient_siret" name="recipient_siret">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="recipient_vat" class="form-label">N° TVA</label>
+                                        <input type="text" class="form-control" id="recipient_vat" name="recipient_vat">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Articles -->
+                            <div class="form-section mb-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-list me-2"></i>
+                                    Articles / Prestations
+                                </h5>
+                                <div id="invoiceItems">
+                                    <div class="invoice-item" data-item="0">
+                                        <div class="row align-items-end">
+                                            <div class="col-md-4">
+                                                <label class="form-label">Description *</label>
+                                                <input type="text" class="form-control" name="description[]" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Quantité *</label>
+                                                <input type="number" class="form-control quantity" name="quantity[]" 
+                                                       value="1" min="0.01" step="0.01" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Prix U. HT *</label>
+                                                <input type="number" class="form-control unit-price" name="unit_price[]" 
+                                                       min="0" step="0.01" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">Taux TVA *</label>
+                                                <select class="form-control vat-rate" name="vat_rate[]" required>
+                                                    <option value="0">0%</option>
+                                                    <option value="5.5">5.5%</option>
+                                                    <option value="10">10%</option>
+                                                    <option value="20" selected>20%</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button type="button" class="btn btn-outline-danger remove-item" 
+                                                        onclick="removeItem(this)" style="margin-top: 32px;">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-outline-primary mt-3" onclick="addItem()">
+                                    <i class="fas fa-plus me-2"></i>
+                                    Ajouter un article
+                                </button>
+                            </div>
+
+                            <div class="text-center">
+                                <button type="button" class="btn btn-outline-info btn-lg me-3" onclick="validateForm()">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    Valider les données
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-lg" id="generateBtn" disabled>
+                                    <i class="fas fa-file-pdf me-2"></i>
+                                    Générer la facture Factur-X
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-calculator me-2"></i>
+                            Aperçu des totaux
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="total-display text-center">
+                            <div class="row">
+                                <div class="col-6">
+                                    <h6>Total HT</h6>
+                                    <h4 id="totalHT">0,00 €</h4>
+                                </div>
+                                <div class="col-6">
+                                    <h6>Total TVA</h6>
+                                    <h4 id="totalTVA">0,00 €</h4>
+                                </div>
+                            </div>
+                            <hr class="text-white">
+                            <h5>Total TTC</h5>
+                            <h3 id="totalTTC">0,00 €</h3>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6 class="text-muted">À propos de Factur-X</h6>
+                            <p class="small text-muted">
+                                Le format Factur-X combine un PDF lisible avec des données XML structurées, 
+                                conforme aux standards européens de facturation électronique.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let itemCounter = 0;
+
+        // Définir la date du jour par défaut
+        document.getElementById('date').valueAsDate = new Date();
+
+        function validateSiret(siret) {
+            // Supprime espaces et tirets
+            siret = siret.replace(/[\s-]/g, '');
+            
+            // Doit contenir exactement 14 chiffres
+            if (!/^\d{14}$/.test(siret)) {
+                return false;
+            }
+            
+            // Algorithme de Luhn pour la validation
+            let total = 0;
+            for (let i = 0; i < siret.length; i++) {
+                let n = parseInt(siret[i]);
+                if (i % 2 === 1) {
+                    n *= 2;
+                    if (n > 9) {
+                        n = Math.floor(n / 10) + (n % 10);
+                    }
+                }
+                total += n;
+            }
+            
+            return total % 10 === 0;
+        }
+
+        function validateForm() {
+            const errors = [];
+            
+            // Validation des champs obligatoires
+            const requiredFields = [
+                { id: 'date', name: 'Date de facturation' },
+                { id: 'invoice_number', name: 'Numéro de facture' },
+                { id: 'issuer_name', name: 'Émetteur - Raison sociale' },
+                { id: 'issuer_address', name: 'Émetteur - Adresse' },
+                { id: 'issuer_postal', name: 'Émetteur - Code postal' },
+                { id: 'issuer_city', name: 'Émetteur - Ville' },
+                { id: 'recipient_name', name: 'Destinataire - Raison sociale' },
+                { id: 'recipient_address', name: 'Destinataire - Adresse' },
+                { id: 'recipient_postal', name: 'Destinataire - Code postal' },
+                { id: 'recipient_city', name: 'Destinataire - Ville' }
+            ];
+            
+            requiredFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (!element.value.trim()) {
+                    errors.push(`${field.name} est obligatoire`);
+                    element.classList.add('is-invalid');
+                } else {
+                    element.classList.remove('is-invalid');
+                    element.classList.add('is-valid');
+                }
+            });
+            
+            // Validation des SIRET
+            const issuerSiret = document.getElementById('issuer_siret').value.trim();
+            const recipientSiret = document.getElementById('recipient_siret').value.trim();
+            
+            if (issuerSiret && !validateSiret(issuerSiret)) {
+                errors.push('SIRET émetteur invalide');
+                document.getElementById('issuer_siret').classList.add('is-invalid');
+            } else if (issuerSiret) {
+                document.getElementById('issuer_siret').classList.add('is-valid');
+            }
+            
+            if (recipientSiret && !validateSiret(recipientSiret)) {
+                errors.push('SIRET destinataire invalide');
+                document.getElementById('recipient_siret').classList.add('is-invalid');
+            } else if (recipientSiret) {
+                document.getElementById('recipient_siret').classList.add('is-valid');
+            }
+            
+            // Validation des articles
+            const items = document.querySelectorAll('.invoice-item');
+            let hasValidItem = false;
+            
+            items.forEach((item, index) => {
+                const description = item.querySelector('input[name="description[]"]');
+                const quantity = item.querySelector('.quantity');
+                const unitPrice = item.querySelector('.unit-price');
+                
+                if (description.value.trim()) {
+                    hasValidItem = true;
+                    
+                    if (!quantity.value || parseFloat(quantity.value) <= 0) {
+                        errors.push(`Article ${index + 1} - Quantité invalide`);
+                        quantity.classList.add('is-invalid');
+                    } else {
+                        quantity.classList.remove('is-invalid');
+                        quantity.classList.add('is-valid');
+                    }
+                    
+                    if (!unitPrice.value || parseFloat(unitPrice.value) < 0) {
+                        errors.push(`Article ${index + 1} - Prix unitaire invalide`);
+                        unitPrice.classList.add('is-invalid');
+                    } else {
+                        unitPrice.classList.remove('is-invalid');
+                        unitPrice.classList.add('is-valid');
+                    }
+                    
+                    description.classList.remove('is-invalid');
+                    description.classList.add('is-valid');
+                }
+            });
+            
+            if (!hasValidItem) {
+                errors.push('Au moins un article est obligatoire');
+            }
+            
+            // Validation du total
+            const totalTTC = parseFloat(document.getElementById('totalTTC').textContent.replace(' €', '').replace(',', '.'));
+            if (totalTTC <= 0) {
+                errors.push('Le montant total doit être supérieur à 0');
+            }
+            
+            // Affichage des résultats
+            const alertContainer = document.querySelector('.container .row');
+            const existingAlert = document.querySelector('.validation-alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            if (errors.length === 0) {
+                const successAlert = document.createElement('div');
+                successAlert.className = 'alert alert-success validation-alert';
+                successAlert.innerHTML = `
+                    <h5><i class="fas fa-check-circle me-2"></i>Validation réussie !</h5>
+                    <p class="mb-0">Toutes les données sont valides. Vous pouvez maintenant générer la facture Factur-X.</p>
+                `;
+                alertContainer.insertBefore(successAlert, alertContainer.firstChild);
+                document.getElementById('generateBtn').disabled = false;
+            } else {
+                const errorAlert = document.createElement('div');
+                errorAlert.className = 'alert alert-danger validation-alert';
+                errorAlert.innerHTML = `
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Erreurs de validation</h5>
+                    <ul class="mb-0">
+                        ${errors.map(error => `<li>${error}</li>`).join('')}
+                    </ul>
+                `;
+                alertContainer.insertBefore(errorAlert, alertContainer.firstChild);
+                document.getElementById('generateBtn').disabled = true;
+            }
+            
+            // Scroll vers le haut pour voir le résultat
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function addItem() {
+            itemCounter++;
+            const container = document.getElementById('invoiceItems');
+            const newItem = container.children[0].cloneNode(true);
+            
+            newItem.setAttribute('data-item', itemCounter);
+            
+            // Vider les champs du nouvel élément
+            const inputs = newItem.querySelectorAll('input');
+            inputs.forEach(input => {
+                if (input.type !== 'number' || input.name === 'description[]') {
+                    input.value = '';
+                } else if (input.classList.contains('quantity')) {
+                    input.value = '1';
+                }
+            });
+            
+            const select = newItem.querySelector('select');
+            select.selectedIndex = 3; // 20% par défaut
+            
+            container.appendChild(newItem);
+            updateTotals();
+        }
+
+        function removeItem(button) {
+            const items = document.querySelectorAll('.invoice-item');
+            if (items.length > 1) {
+                button.closest('.invoice-item').remove();
+                updateTotals();
+            }
+        }
+
+        function updateTotals() {
+            let totalHT = 0;
+            let totalTVA = 0;
+            let totalTTC = 0;
+
+            document.querySelectorAll('.invoice-item').forEach(item => {
+                const quantity = parseFloat(item.querySelector('.quantity').value) || 0;
+                const unitPrice = parseFloat(item.querySelector('.unit-price').value) || 0;
+                const vatRate = parseFloat(item.querySelector('.vat-rate').value) || 0;
+
+                const lineHT = quantity * unitPrice;
+                const lineTVA = lineHT * (vatRate / 100);
+                const lineTTC = lineHT + lineTVA;
+
+                totalHT += lineHT;
+                totalTVA += lineTVA;
+                totalTTC += lineTTC;
+            });
+
+            document.getElementById('totalHT').textContent = totalHT.toFixed(2) + ' €';
+            document.getElementById('totalTVA').textContent = totalTVA.toFixed(2) + ' €';
+            document.getElementById('totalTTC').textContent = totalTTC.toFixed(2) + ' €';
+        }
+
+        // Écouter les changements sur tous les champs de calcul
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('quantity') || 
+                e.target.classList.contains('unit-price') || 
+                e.target.classList.contains('vat-rate')) {
+                updateTotals();
+            }
+            
+            // Réinitialiser le statut de validation lors des modifications
+            if (e.target.classList.contains('is-invalid') || e.target.classList.contains('is-valid')) {
+                e.target.classList.remove('is-invalid', 'is-valid');
+                document.getElementById('generateBtn').disabled = true;
+                const existingAlert = document.querySelector('.validation-alert');
+                if (existingAlert) {
+                    existingAlert.remove();
+                }
+            }
+        });
+
+        // Auto-validation pour certains champs
+        document.addEventListener('blur', function(e) {
+            if (e.target.id === 'issuer_siret' || e.target.id === 'recipient_siret') {
+                const siret = e.target.value.trim();
+                if (siret && !validateSiret(siret)) {
+                    e.target.classList.add('is-invalid');
+                    e.target.setAttribute('title', 'Format SIRET invalide (14 chiffres)');
+                } else if (siret) {
+                    e.target.classList.remove('is-invalid');
+                    e.target.classList.add('is-valid');
+                    e.target.removeAttribute('title');
+                }
+            }
+        }, true);
+
+        // Mise à jour initiale
+        updateTotals();
+    </script>
+</body>
+</html>
